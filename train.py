@@ -119,7 +119,7 @@ def run_eval(
             assert isinstance(val_data["loss"], torch.Tensor)
             val_losses = val_data["loss"].float().cpu().numpy()
             val_loss = np.mean(val_losses)
-            logger.info(f"Mean {mode} loss: {np.mean(val_losses):.5f}")
+            logger.info(f"Mean {mode} loss: {val_loss:.5f}")
             cfg.logging._logger.log(
                 mode, "loss", val_loss, step=cfg.environment._curr_step
             )
@@ -703,8 +703,11 @@ def run(cfg: Any) -> None:
         write_flag(flag_path, "status", "finished")
         time_took = time.time() - global_start_time
         if time_took > 86400:
+            # if more than one day, show days
+            # need to subtract 1 day from time_took since strftime shows day of year
+            # which starts counting at 1
             time_took_formatted = time.strftime(
-                "%-jd %H:%M:%S", time.gmtime(float(time_took))
+                "%-jd %H:%M:%S", time.gmtime(float(time_took - 86400))
             )
         else:
             time_took_formatted = time.strftime(
