@@ -11,7 +11,6 @@ from llm_studio.src.utils.modeling_utils import (
     create_nlp_backbone,
     generate_text,
     prepare_lora,
-    unwrap_model,
 )
 
 logger = logging.getLogger(__name__)
