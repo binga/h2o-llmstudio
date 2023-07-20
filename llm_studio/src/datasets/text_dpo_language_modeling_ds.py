@@ -1,7 +1,6 @@
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
-import numpy as np
 import pandas as pd
 import torch
 
@@ -67,7 +66,6 @@ class CustomDataset(LLMCustomDataset):
     def __getitem__(self, idx: int) -> Dict:
         """Reads a single text observation."""
         sample = super().__getitem__(idx)
-        sample.pop("reward_model_prompt_text", None)
         if self.cfg.dataset.add_eos_token_to_answer:
             # remove EOS from input ids
             # TODO: fix max length in this case to be + 1
