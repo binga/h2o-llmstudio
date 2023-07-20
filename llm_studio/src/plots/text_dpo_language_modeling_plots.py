@@ -26,7 +26,7 @@ class Plots:
         tokenizer = get_tokenizer(cfg)
 
         texts = [
-            tokenizer.decode(input_ids, skip_special_tokens=False)
+            tokenizer.decode(input_ids, skip_special_tokens=True)
             for input_ids in batch["input_ids"].detach().cpu().numpy()
         ]
 
@@ -43,28 +43,23 @@ class Plots:
         tokenized_target_texts = {"chosen": [], "rejected": []}
         for type in ["chosen", "rejected"]:
             if f"{type}_labels" in batch.keys():
-                labels = batch[f"{type}_labels"].detach().cpu().numpy()
                 labels = [
                     [input_id for input_id in input_ids if input_id != -100]
+                    for input_ids in batch[f"{type}_labels"].detach().cpu().numpy()
+                ]
+
+                target_texts[type] = [
+                    tokenizer.decode(input_ids, skip_special_tokens=False)
                     for input_ids in labels
                 ]
 
-                target_texts[type].append(
-                    [
-                        tokenizer.decode(input_ids, skip_special_tokens=False)
-                        for input_ids in labels
-                    ]
-                )
-
-                tokenized_target_texts[type].append(
-                    [
-                        color_code_tokenized_text(
-                            tokenizer.convert_ids_to_tokens(input_ids),
-                            tokenizer,
-                        )
-                        for input_ids in labels
-                    ]
-                )
+                tokenized_target_texts[type] = [
+                    color_code_tokenized_text(
+                        tokenizer.convert_ids_to_tokens(input_ids),
+                        tokenizer,
+                    )
+                    for input_ids in labels
+                ]
 
         markup = ""
 

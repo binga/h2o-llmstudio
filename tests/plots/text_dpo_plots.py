@@ -11,7 +11,7 @@ from llm_studio.src.datasets.text_dpo_language_modeling_ds import CustomDataset
 from llm_studio.src.plots.text_dpo_language_modeling_plots import Plots
 
 
-def plot_batch():
+def test_can_plot_batch():
     df = pd.DataFrame(
         {
             "prompt": ["prompt 1", "prompt 2", "prompt 3"],
@@ -32,11 +32,9 @@ def plot_batch():
     )
     dataset = CustomDataset(df, cfg)
     dataloder = DataLoader(
-        dataset, batch_size=3, collate_fn=dataset.get_train_collate_fn()
+        dataset, batch_size=1, collate_fn=dataset.get_train_collate_fn()
     )
     batch = next(iter(dataloder))
     plot = Plots.plot_batch(batch, cfg)
 
 
-if __name__ == "__main__":
-    plot_batch()
