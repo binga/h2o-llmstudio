@@ -84,8 +84,8 @@ class CustomDataset(LLMCustomDataset):
                 self.tokenizer,
                 text=text,
                 max_length=(
-                        self.cfg.tokenizer.max_length_answer
-                        - int(self.cfg.dataset.add_eos_token_to_answer)
+                    self.cfg.tokenizer.max_length_answer
+                    - int(self.cfg.dataset.add_eos_token_to_answer)
                 ),
                 truncation_side="right",
             )["input_ids"]
@@ -105,10 +105,12 @@ class CustomDataset(LLMCustomDataset):
         ) + len(sample["input_ids"])
         max_length = min(max_length, self.cfg.tokenizer.max_length)
         for name, answer_input_id in zip(["chosen", "rejected"], answer_input_ids):
-            input_ids = torch.cat([sample["input_ids"], answer_input_id], dim=0)[-max_length:]
-            attention_mask = torch.cat([sample["attention_mask"],
-                                        torch.ones_like(answer_input_id)],
-                                       dim=0)[-max_length:]
+            input_ids = torch.cat([sample["input_ids"], answer_input_id], dim=0)[
+                -max_length:
+            ]
+            attention_mask = torch.cat(
+                [sample["attention_mask"], torch.ones_like(answer_input_id)], dim=0
+            )[-max_length:]
             sample.update(
                 self.right_pad_tokens(
                     input_ids,
@@ -118,11 +120,9 @@ class CustomDataset(LLMCustomDataset):
                     prefix=f"{name}_",
                 )
             )
-            # no need to mask original labels, as logits for rejected and accepted input ids will be the same
-            # conditioned on input_ids
             labels = sample[f"{name}_input_ids"].clone()
-            attention_mask = sample[f"{name}_attention_mask"]
-            labels.masked_fill_(attention_mask, -100)
+            labels[: len(sample["input_ids"])] = -100
+            labels[labels == self.tokenizer.pad_token_id] = -100
             if self.cfg.dataset.add_eos_token_to_answer:
                 # eos_token may be equal to pad_token. Add the label back manually.
                 labels[
@@ -134,12 +134,12 @@ class CustomDataset(LLMCustomDataset):
         return sample
 
     def right_pad_tokens(
-            self,
-            input_ids,
-            attention_mask,
-            max_length,
-            pad_token_id,
-            prefix="",
+        self,
+        input_ids,
+        attention_mask,
+        max_length,
+        pad_token_id,
+        prefix="",
     ):
         sample = {}
         sample[f"{prefix}input_ids"] = torch.full((max_length,), pad_token_id)

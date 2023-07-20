@@ -47,9 +47,9 @@ class Model(nn.Module):
         return generate_text(self.backbone, batch, cfg, streamer, self.training)
 
     def forward(
-            self,
-            batch: Dict,
-            padding: bool = True,
+        self,
+        batch: Dict,
+        padding: bool = True,
     ) -> Dict:
         # disable cache if gradient checkpointing is enabled
         if self.cfg.architecture.gradient_checkpointing:
@@ -74,21 +74,26 @@ class Model(nn.Module):
                 input_ids=batch[f"{answer}_input_ids"],
                 attention_mask=batch[f"{answer}_attention_mask"],
             ).logits
-            outputs[f"{answer}_logps"] = self.get_batch_logps(logits, batch[f"{answer}_labels"])
+            outputs[f"{answer}_logps"] = self.get_batch_logps(
+                logits, batch[f"{answer}_labels"]
+            )
 
             with self.backbone.disable_adapter():
                 reference_logits = self.backbone(
                     input_ids=batch[f"{answer}_input_ids"],
                     attention_mask=batch[f"{answer}_attention_mask"],
                 ).logits
-                outputs[f"{answer}_reference_logps"] = self.get_batch_logps(reference_logits,
-                                                                            batch[f"{answer}_labels"])
+                outputs[f"{answer}_reference_logps"] = self.get_batch_logps(
+                    reference_logits, batch[f"{answer}_labels"]
+                )
 
-        loss = self.loss_fn(policy_chosen_logps=outputs[f"chosen_logps"],
-                            policy_rejected_logps=outputs[f"rejected_logps"],
-                            reference_chosen_logps=outputs[f"chosen_reference_logps"],
-                            reference_rejected_logps=outputs[f"rejected_reference_logps"],
-                            beta=0.1)
+        loss = self.loss_fn(
+            policy_chosen_logps=outputs[f"chosen_logps"],
+            policy_rejected_logps=outputs[f"rejected_logps"],
+            reference_chosen_logps=outputs[f"chosen_reference_logps"],
+            reference_rejected_logps=outputs[f"rejected_reference_logps"],
+            beta=0.1,
+        )
         outputs["loss"] = loss
 
         # enable cache again if gradient checkpointing is enabled
@@ -97,9 +102,12 @@ class Model(nn.Module):
 
         return outputs
 
-    def get_batch_logps(self,
-                        logits: torch.FloatTensor, labels: torch.LongTensor, average_log_prob: bool = False
-                        ) -> torch.FloatTensor:
+    def get_batch_logps(
+        self,
+        logits: torch.FloatTensor,
+        labels: torch.LongTensor,
+        average_log_prob: bool = False,
+    ) -> torch.FloatTensor:
         # Implementation from https://github.com/eric-mitchell/direct-preference-optimization
         """Compute the log probabilities of the given labels under the given logits.
 

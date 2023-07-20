@@ -15,8 +15,9 @@ from llm_studio.python_configs.text_causal_language_modeling_config import (
     ConfigNLPCausalLMTraining,
 )
 from llm_studio.src import possible_values
-from llm_studio.src.losses import text_causal_language_modeling_losses
-from llm_studio.src.models import text_causal_language_modeling_model
+from llm_studio.src.losses import text_dpo_language_modeling_losses
+from llm_studio.src.models import text_dpo_language_modeling_model
+from llm_studio.src.plots import text_dpo_language_modeling_plots
 from llm_studio.src.utils.training_utils import generate_experiment_name
 
 
@@ -25,6 +26,7 @@ class ConfigNLPDPOLMDataset(ConfigNLPCausalLMDataset):
     dataset_class: Any = (
         llm_studio.src.datasets.text_dpo_language_modeling_ds.CustomDataset
     )
+    # Always have full chat history. Chosen/Rejected prompt are only at the end of a conversation.
     limit_chained_samples: bool = True
     mask_prompt_labels: bool = False
 
@@ -42,14 +44,19 @@ class ConfigNLPDPOLMDataset(ConfigNLPCausalLMDataset):
 
 @dataclass
 class ConfigDPOCausalLMTraining(ConfigNLPCausalLMTraining):
-    loss_class: Any = text_causal_language_modeling_losses.Losses
-    loss_function: str = "TokenAveragedCrossEntropy"
+    loss_class: Any = text_dpo_language_modeling_losses.Losses
+    loss_function: str = "DPOLoss"
     optimizer: str = "AdamW"
 
 
 @dataclass
 class ConfigDPOCausalLMArchitecture(ConfigNLPCausalLMArchitecture):
-    model_class: Any = text_causal_language_modeling_model.Model
+    model_class: Any = text_dpo_language_modeling_model.Model
+
+
+@dataclass
+class ConfigDPOPCausalLMLogging(ConfigNLPCausalLMLogging):
+    plots_class: Any = text_dpo_language_modeling_plots.Plots
 
 
 @dataclass
@@ -76,7 +83,9 @@ class ConfigProblemBase(DefaultConfig):
     environment: ConfigNLPCausalLMEnvironment = field(
         default_factory=ConfigNLPCausalLMEnvironment
     )
-    logging: ConfigNLPCausalLMLogging = field(default_factory=ConfigNLPCausalLMLogging)
+    logging: ConfigDPOPCausalLMLogging = field(
+        default_factory=ConfigDPOPCausalLMLogging
+    )
 
     def __post_init__(self):
         super().__post_init__()
@@ -131,5 +140,5 @@ class ConfigProblemBase(DefaultConfig):
             environment=ConfigNLPCausalLMEnvironment.from_dict(
                 cfg_dict.get("environment", {})
             ),
-            logging=ConfigNLPCausalLMLogging.from_dict(cfg_dict.get("logging", {})),
+            logging=ConfigDPOPCausalLMLogging.from_dict(cfg_dict.get("logging", {})),
         )
