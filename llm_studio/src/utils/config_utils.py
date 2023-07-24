@@ -181,7 +181,8 @@ def save_config_yaml(path: str, cfg) -> None:
     cfg_dict["experiment_name"] = cfg.experiment_name
     cfg_dict["output_directory"] = cfg.output_directory
     cfg_dict["llm_backbone"] = cfg.llm_backbone
-    # Parse problem_type from config filename, for example: text_causal_language_modeling
+    # Parse problem_type from config filename,
+    # for example: text_causal_language_modeling
     cfg_dict["problem_type"] = (
         type(cfg).__dict__["__module__"].split(".")[-1].replace("_config", "")
     )
