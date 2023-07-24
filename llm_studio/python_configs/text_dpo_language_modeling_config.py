@@ -48,6 +48,9 @@ class ConfigDPOCausalLMTraining(ConfigNLPCausalLMTraining):
     loss_function: str = "DPOLoss"
     optimizer: str = "AdamW"
 
+    def __post_init__(self):
+        super().__post_init__()
+        self._visibility["lora"] = -1
 
 @dataclass
 class ConfigDPOCausalLMArchitecture(ConfigNLPCausalLMArchitecture):

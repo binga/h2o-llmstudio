@@ -34,8 +34,8 @@ class Model(nn.Module):
             cfg, model_class=AutoModelForCausalLM
         )
 
-        if cfg.training.lora:
-            self.backbone = prepare_lora(cfg=cfg, backbone=self.backbone)
+        assert cfg.training.lora, "Need to enable lora for dpo training"
+        self.backbone = prepare_lora(cfg=cfg, backbone=self.backbone)
 
         self.loss_fn = self.cfg.training.loss_class.get(
             self.cfg.training.loss_function

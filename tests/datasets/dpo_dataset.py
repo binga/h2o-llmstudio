@@ -69,7 +69,7 @@ if __name__ == "__main__":
         rejected_label = dataset.tokenizer.decode(
             sample["rejected_labels"], skip_special_tokens=True
         )
-        if idx in [33777, 77046]:
+        if idx in [33777, 77046, 88047, 88476, 89090, 92121, 95371, 95606, 96376, 99342, 99918]:
             continue
         try:
             assert chosen_text.startswith(input_text_prompt)

@@ -102,8 +102,6 @@ class CustomDataset(LLMCustomDataset):
                 )
             answer_input_ids.append(answer_input_id)
 
-        # Need to right pad rejected and chosen answer to same length
-
         max_length = max(
             [len(answer_input_id) for answer_input_id in answer_input_ids]
         ) + len(original_input_ids)
@@ -115,6 +113,7 @@ class CustomDataset(LLMCustomDataset):
                 len(original_input_ids) + len(answer_input_id),
                 device=original_input_ids.device,
             )[-max_length:]
+            # Need to right pad rejected and chosen answer to same length
             sample.update(
                 self.right_pad_tokens(
                     input_ids,
