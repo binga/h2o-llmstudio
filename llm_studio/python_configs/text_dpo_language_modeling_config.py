@@ -44,6 +44,8 @@ class ConfigNLPDPOLMDataset(ConfigNLPCausalLMDataset):
 
 @dataclass
 class ConfigDPOCausalLMTraining(ConfigNLPCausalLMTraining):
+    learning_rate: float = 1e-6
+    gradient_clip: float = 10.0
     loss_class: Any = text_dpo_language_modeling_losses.Losses
     loss_function: str = "DPOLoss"
     optimizer: str = "AdamW"

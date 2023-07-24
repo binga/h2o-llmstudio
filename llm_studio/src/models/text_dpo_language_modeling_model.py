@@ -79,20 +79,21 @@ class Model(nn.Module):
             )
 
             with self.backbone.disable_adapter():
-                reference_logits = self.backbone(
-                    input_ids=batch[f"{answer}_input_ids"],
-                    attention_mask=batch[f"{answer}_attention_mask"],
-                ).logits
-                outputs[f"{answer}_reference_logps"] = self.get_batch_logps(
-                    reference_logits, batch[f"{answer}_labels"]
-                )
+                with torch.no_grad():
+                    reference_logits = self.backbone(
+                        input_ids=batch[f"{answer}_input_ids"],
+                        attention_mask=batch[f"{answer}_attention_mask"],
+                    ).logits
+                    outputs[f"{answer}_reference_logps"] = self.get_batch_logps(
+                        reference_logits, batch[f"{answer}_labels"]
+                    )
 
         loss = self.loss_fn(
             policy_chosen_logps=outputs[f"chosen_logps"],
             policy_rejected_logps=outputs[f"rejected_logps"],
             reference_chosen_logps=outputs[f"chosen_reference_logps"],
             reference_rejected_logps=outputs[f"rejected_reference_logps"],
-            beta=0.1,
+            beta=0.1,  # TODO: make this a hyperparameter
         )
         outputs["loss"] = loss
 
