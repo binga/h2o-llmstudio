@@ -75,6 +75,7 @@ class CustomDataset(LLMCustomDataset):
 
         idx = self.indices[idx]
 
+        original_input_ids = sample["input_ids"][torch.argwhere(sample["attention_mask"]).view(-1)]
         answer_input_ids = []
         for name, text in [
             ("chosen", self.chosen_answers[idx]),
@@ -100,17 +101,17 @@ class CustomDataset(LLMCustomDataset):
             answer_input_ids.append(answer_input_id)
 
         # Need to right pad rejected and chosen answer to same length
+
         max_length = max(
             [len(answer_input_id) for answer_input_id in answer_input_ids]
-        ) + len(sample["input_ids"])
+        ) + len(original_input_ids)
         max_length = min(max_length, self.cfg.tokenizer.max_length)
         for name, answer_input_id in zip(["chosen", "rejected"], answer_input_ids):
-            input_ids = torch.cat([sample["input_ids"], answer_input_id], dim=0)[
+            input_ids = torch.cat([original_input_ids, answer_input_id], dim=0)[
                 -max_length:
             ]
-            attention_mask = torch.cat(
-                [sample["attention_mask"], torch.ones_like(answer_input_id)], dim=0
-            )[-max_length:]
+            attention_mask = torch.ones(len(original_input_ids) + len(answer_input_id),
+                                        device=original_input_ids.device)[-max_length:]
             sample.update(
                 self.right_pad_tokens(
                     input_ids,
@@ -121,7 +122,7 @@ class CustomDataset(LLMCustomDataset):
                 )
             )
             labels = sample[f"{name}_input_ids"].clone()
-            labels[: len(sample["input_ids"])] = -100
+            labels[: len(original_input_ids)] = -100
             labels[labels == self.tokenizer.pad_token_id] = -100
             if self.cfg.dataset.add_eos_token_to_answer:
                 # eos_token may be equal to pad_token. Add the label back manually.
