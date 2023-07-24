@@ -105,6 +105,7 @@ class CustomDataset(LLMCustomDataset):
         max_length = max(
             [len(answer_input_id) for answer_input_id in answer_input_ids]
         ) + len(original_input_ids)
+        max_length = max(max_length, self.cfg.tokenizer.max_length)
         for name, answer_input_id in zip(["chosen", "rejected"], answer_input_ids):
             input_ids = torch.cat([original_input_ids, answer_input_id], dim=0)[
                 -max_length:
@@ -142,7 +143,7 @@ class CustomDataset(LLMCustomDataset):
                 f"{name}_labels",
             ]:
                 sample[key] = sample[key][
-                    -min(max_length, self.cfg.tokenizer.max_length) :
+                    -self.cfg.tokenizer.max_length:
                 ]
 
         return sample

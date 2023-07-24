@@ -47,10 +47,12 @@ class ConfigDPOCausalLMTraining(ConfigNLPCausalLMTraining):
     loss_class: Any = text_dpo_language_modeling_losses.Losses
     loss_function: str = "DPOLoss"
     optimizer: str = "AdamW"
+    lora: bool = True
 
     def __post_init__(self):
         super().__post_init__()
         self._visibility["lora"] = -1
+
 
 @dataclass
 class ConfigDPOCausalLMArchitecture(ConfigNLPCausalLMArchitecture):
