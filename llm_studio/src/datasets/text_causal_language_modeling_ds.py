@@ -242,7 +242,7 @@ class CustomDataset(Dataset):
 
         return None
 
-    def postprocess_batch_predictions(self, cfg: Any, output: Dict) -> Dict:
+    def postprocess_batch_predictions(self, cfg: Any, batch, output: Dict) -> Dict:
         if cfg.prediction.metric == "Perplexity":
             return output
 

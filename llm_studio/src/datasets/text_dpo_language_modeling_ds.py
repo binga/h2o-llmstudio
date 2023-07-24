@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict
 
+import numpy as np
 import pandas as pd
 import torch
 
@@ -142,9 +143,7 @@ class CustomDataset(LLMCustomDataset):
                 f"{name}_attention_mask",
                 f"{name}_labels",
             ]:
-                sample[key] = sample[key][
-                    -self.cfg.tokenizer.max_length:
-                ]
+                sample[key] = sample[key][-self.cfg.tokenizer.max_length :]
 
         return sample
 
@@ -162,6 +161,28 @@ class CustomDataset(LLMCustomDataset):
         sample[f"{prefix}attention_mask"] = torch.zeros(max_length)
         sample[f"{prefix}attention_mask"][: len(input_ids)] = attention_mask
         return sample
+
+    def postprocess_batch_predictions(self, cfg: Any, batch, output: Dict) -> Dict:
+        if cfg.prediction.metric == "Perplexity":
+            return output
+
+        predicted_text = [
+            self.tokenizer.decode(ids, skip_special_tokens=True).strip()
+            for ids in output["predicted_answer_ids"]
+        ]
+        output["predicted_text"] = np.array(predicted_text)
+        input_text = [
+            self.tokenizer.decode(ids, skip_special_tokens=True).strip()
+            for ids in batch["prompt_input_ids"]
+        ]
+        output["input_text"] = np.array(input_text)
+
+        if not cfg.training.use_rlhf:
+            del output["predicted_answer_ids"]
+        else:
+            output["predicted_answer_ids"].detach()
+
+        return output
 
     def postprocess_output(self, cfg, df: pd.DataFrame, output: Dict) -> Dict:
         output["target_text"] = self.chosen_answers

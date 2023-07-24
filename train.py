@@ -282,7 +282,7 @@ def run_train(
                     )
                     output_dict = (
                         train_dataloader.dataset.postprocess_batch_predictions(
-                            cfg=cfg, output=output_dict
+                            cfg=cfg, batch=batch, output=output_dict
                         )
                     )
 

@@ -123,7 +123,7 @@ class Plots:
         metrics: Any,
         sample_idx: Any,
     ) -> str:
-        input_texts = get_texts(val_df, cfg, separator="")
+        input_texts = val_outputs["input_text"]
         markup = ""
 
         true_labels = val_outputs["target_text"]

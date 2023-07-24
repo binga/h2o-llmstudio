@@ -252,9 +252,7 @@ def run_inference(
                 "gradient clipping may help to stabilize training."
             )
 
-        output = dataloader.dataset.postprocess_batch_predictions(
-            cfg=cfg, output=output
-        )
+        output = dataloader.dataset.postprocess_batch_predictions(cfg=cfg, batch=batch, output=output)
 
         if "predicted_answer_ids" in output.keys():
             del output["predicted_answer_ids"]
