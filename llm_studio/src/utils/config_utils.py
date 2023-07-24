@@ -213,4 +213,4 @@ def load_config_yaml(path: str):
         problem_type = cfg_dict["problem_type"]
         raise NotImplementedError(f"Problem Type {problem_type} not implemented")
 
-    return ConfigProblemBase.from_config(cfg_dict)
+    return ConfigProblemBase.from_dict(cfg_dict)
