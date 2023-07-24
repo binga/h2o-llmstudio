@@ -37,4 +37,7 @@ def test_can_plot_batch():
     batch = next(iter(dataloder))
     plot = Plots.plot_batch(batch, cfg)
 
+    plot = Plots.plot_validation_predictions(val_outputs=None,
+                                             cfg=cfg,
+                                             val_df=df)
 

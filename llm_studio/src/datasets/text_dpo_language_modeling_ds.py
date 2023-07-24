@@ -67,6 +67,8 @@ class CustomDataset(LLMCustomDataset):
     def __getitem__(self, idx: int) -> Dict:
         """Reads a single text observation."""
         sample = super().__getitem__(idx)
+        idx = self.indices[idx]
+
         if self.cfg.dataset.add_eos_token_to_answer:
             # remove EOS from input ids
             # TODO: fix max length in this case to be + 1
@@ -74,11 +76,70 @@ class CustomDataset(LLMCustomDataset):
                 if key in sample:
                     sample[key] = sample[key][:-1]
 
-        idx = self.indices[idx]
+        chosen_input_ids, rejected_input_ids = self.get_answer_input_ids(idx)
 
-        original_input_ids = sample["input_ids"][
+        input_ids_not_padded = sample["input_ids"][
             torch.argwhere(sample["attention_mask"]).view(-1)
         ]
+        max_length = max(
+            [
+                len(chosen_input_ids) + len(input_ids_not_padded),
+                len(rejected_input_ids) + len(input_ids_not_padded),
+                self.cfg.tokenizer.max_length,
+            ]
+        )
+
+        for name, answer_input_ids in zip(
+            ["chosen", "rejected"], [chosen_input_ids, rejected_input_ids]
+        ):
+            sample.update(
+                {
+                    f"{name}_{k}": v
+                    for k, v in self.create_concatenated_inputs_and_labels(
+                        input_ids_not_padded, answer_input_ids, max_length
+                    ).items()
+                }
+            )
+        return sample
+
+    def create_concatenated_inputs_and_labels(
+        self, prompt_input_ids, answer_input_ids, max_length
+    ) -> dict:
+        sample = {}
+        input_ids = torch.cat([prompt_input_ids, answer_input_ids], dim=0)[-max_length:]
+        # prompt inputs ids are not padded
+        attention_mask = torch.ones(
+            len(prompt_input_ids) + len(answer_input_ids),
+            device=prompt_input_ids.device,
+        )[-max_length:]
+        # Need to right pad rejected and chosen answer to same length
+        sample.update(
+            self.right_pad_tokens(
+                input_ids,
+                attention_mask=attention_mask,
+                max_length=max_length,
+                pad_token_id=self.tokenizer.pad_token_id,
+            )
+        )
+        labels = sample["input_ids"].clone()
+        labels[: len(prompt_input_ids)] = -100
+        labels[labels == self.tokenizer.pad_token_id] = -100
+        if self.cfg.dataset.add_eos_token_to_answer:
+            # eos_token may be equal to pad_token. Add the label back manually.
+            labels[
+                torch.max(torch.where(sample["attention_mask"] != 0)[0]).cpu().item()
+            ] = self.tokenizer.eos_token_id
+        sample["labels"] = labels
+        for key in [
+            "input_ids",
+            "attention_mask",
+            "labels",
+        ]:
+            sample[key] = sample[key][-self.cfg.tokenizer.max_length :]
+
+        return sample
+
+    def get_answer_input_ids(self, idx):
         answer_input_ids = []
         for name, text in [
             ("chosen", self.chosen_answers[idx]),
@@ -102,50 +163,7 @@ class CustomDataset(LLMCustomDataset):
                     dim=0,
                 )
             answer_input_ids.append(answer_input_id)
-
-        max_length = max(
-            [len(answer_input_id) for answer_input_id in answer_input_ids]
-        ) + len(original_input_ids)
-        max_length = max(max_length, self.cfg.tokenizer.max_length)
-        for name, answer_input_id in zip(["chosen", "rejected"], answer_input_ids):
-            input_ids = torch.cat([original_input_ids, answer_input_id], dim=0)[
-                -max_length:
-            ]
-            attention_mask = torch.ones(
-                len(original_input_ids) + len(answer_input_id),
-                device=original_input_ids.device,
-            )[-max_length:]
-            # Need to right pad rejected and chosen answer to same length
-            sample.update(
-                self.right_pad_tokens(
-                    input_ids,
-                    attention_mask=attention_mask,
-                    max_length=max_length,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                    prefix=f"{name}_",
-                )
-            )
-            labels = sample[f"{name}_input_ids"].clone()
-            labels[: len(original_input_ids)] = -100
-            labels[labels == self.tokenizer.pad_token_id] = -100
-            if self.cfg.dataset.add_eos_token_to_answer:
-                # eos_token may be equal to pad_token. Add the label back manually.
-                labels[
-                    torch.max(torch.where(sample[f"{name}_attention_mask"] != 0)[0])
-                    .cpu()
-                    .item()
-                ] = self.tokenizer.eos_token_id
-
-            sample[f"{name}_labels"] = labels
-
-            for key in [
-                f"{name}_input_ids",
-                f"{name}_attention_mask",
-                f"{name}_labels",
-            ]:
-                sample[key] = sample[key][-self.cfg.tokenizer.max_length :]
-
-        return sample
+        return answer_input_ids
 
     def right_pad_tokens(
         self,

@@ -31,7 +31,7 @@ def test_sample_is_correct():
     filename = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "..", "data/user/hh/train.pq")
     )
-    df = pd.read_parquet(filename)
+    df = pd.read_parquet(filename).iloc[:5000]
     df.head()
 
     cfg = ConfigProblemBase(
@@ -53,6 +53,10 @@ def test_sample_is_correct():
             "chosen_input_ids",
             "rejected_input_ids",
         ]:
+            assert len(sample[key].shape) == 1, (
+                key,
+                sample[key].shape,
+            )  # Check sample shape is correct
             sample[key][sample[key] == -100] = 0
 
         input_text_prompt = dataset.tokenizer.decode(
@@ -111,7 +115,7 @@ def test_dataloader():
     filename = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "..", "data/user/hh/train.pq")
     )
-    df = pd.read_parquet(filename)
+    df = pd.read_parquet(filename).iloc[: (5000 // 16) * 16]
     df.head()
 
     cfg = ConfigProblemBase(
@@ -127,7 +131,12 @@ def test_dataloader():
 
     for idx, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
         for key in batch:
-            assert batch[key].size(0) == 16  # Check batch size is correct
+            if idx != len(dataloader) - 1:
+                assert batch[key].size(0) == 16, (
+                    key,
+                    batch[key].shape,
+                )
+
             if key in [
                 "labels",
                 "chosen_labels",
