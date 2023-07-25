@@ -27,7 +27,7 @@ class DPOLoss(nn.Module):
         reference_chosen_logps: torch.FloatTensor,
         reference_rejected_logps: torch.FloatTensor,
         beta: float,
-    ) -> torch.FloatTensor:
+    ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """Compute the DPO loss for a batch of policy and reference model log probabilities.
 
         Args:
@@ -44,7 +44,13 @@ class DPOLoss(nn.Module):
         ref_logratios = reference_chosen_logps - reference_rejected_logps
         logits = pi_logratios - ref_logratios
         losses = -F.logsigmoid(beta * logits)
-        return losses.mean()
+
+        chosen_rewards = beta * (policy_chosen_logps - reference_chosen_logps).detach()
+        rejected_rewards = (
+            beta * (policy_rejected_logps - reference_rejected_logps).detach()
+        )
+
+        return losses.mean(), chosen_rewards, rejected_rewards
 
 
 class Losses:

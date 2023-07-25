@@ -44,6 +44,34 @@ def test_sample_is_correct():
 
     dataset = CustomDataset(df, cfg, mode="train")
     for idx, sample in tqdm(enumerate(dataset), total=len(dataset)):
+        # test that labels and input ids are aligned
+        for mode in ["chosen", "rejected"]:
+            assert (
+                torch.sum(
+                    sample[f"{mode}_input_ids"][
+                        torch.argwhere(sample[f"{mode}_labels"] != -100).view(-1)
+                    ]
+                    - sample[f"{mode}_labels"][
+                        torch.argwhere(sample[f"{mode}_labels"] != -100).view(-1)
+                    ]
+                )
+                == 0
+            )
+
+        # test that chosen and rejected are aligned
+        idxs_no_answer = torch.argwhere(
+            (sample["chosen_labels"] == -100) & (sample["rejected_labels"] == -100)
+        ).view(-1)
+        assert len(idxs_no_answer) < len(sample["chosen_labels"])
+        assert (
+            torch.sum(
+                (sample["chosen_input_ids"] - sample["rejected_input_ids"])[
+                    idxs_no_answer
+                ]
+            )
+            == 0
+        )
+
         for key in [
             "labels",
             "chosen_labels",
@@ -57,24 +85,39 @@ def test_sample_is_correct():
                 key,
                 sample[key].shape,
             )  # Check sample shape is correct
+
+            # remove -100 from labels so that we can decode
             sample[key][sample[key] == -100] = 0
 
         input_text_prompt = dataset.tokenizer.decode(
-            sample["prompt_input_ids"], skip_special_tokens=True
+            sample["prompt_input_ids"][
+                torch.argwhere(sample["prompt_attention_mask"]).view(-1)
+            ],
+            skip_special_tokens=True,
         )
         chosen_text = dataset.tokenizer.decode(
-            sample["chosen_input_ids"], skip_special_tokens=True
+            sample["chosen_input_ids"][
+                torch.argwhere(sample["chosen_attention_mask"]).view(-1)
+            ],
+            skip_special_tokens=True,
         )
         chosen_label = dataset.tokenizer.decode(
-            sample["chosen_labels"], skip_special_tokens=True
+            sample["chosen_labels"],
+            skip_special_tokens=True,
         )
 
         rejected_text = dataset.tokenizer.decode(
-            sample["rejected_input_ids"], skip_special_tokens=True
+            sample["rejected_input_ids"][
+                torch.argwhere(sample["rejected_attention_mask"]).view(-1)
+            ],
+            skip_special_tokens=True,
         )
         rejected_label = dataset.tokenizer.decode(
             sample["rejected_labels"], skip_special_tokens=True
         )
+
+        # skip some examples that fail, these are "edge" cases where rejected label replacement
+        # from the test is not perfect
         if idx in [
             33777,
             77046,
@@ -89,6 +132,7 @@ def test_sample_is_correct():
             99918,
         ]:
             continue
+
         try:
             assert chosen_text.startswith(input_text_prompt)
             assert rejected_text.startswith(input_text_prompt)
@@ -137,7 +181,7 @@ def test_dataloader():
                     batch[key].shape,
                 )
 
-            if key in [
+            keys = [
                 "labels",
                 "chosen_labels",
                 "rejected_labels",
@@ -145,5 +189,10 @@ def test_dataloader():
                 "input_ids",
                 "chosen_input_ids",
                 "rejected_input_ids",
-            ]:
-                pass
+                "prompt_attention_mask",
+                "rejected_attention_mask",
+                "chosen_attention_mask",
+                "attention_mask",
+            ]
+            assert set(batch.keys()) - set(keys) == set()
+            assert set(keys) - set(batch.keys()) == set()
