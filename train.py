@@ -406,7 +406,7 @@ def run_train(
                         cfg.logging._logger.log(
                             "train",
                             key,
-                            output_dict[key],
+                            output_dict[key].item(),
                             step=cfg.environment._curr_step,
                         )
 
