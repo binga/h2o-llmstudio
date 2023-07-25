@@ -93,7 +93,7 @@ class Model(nn.Module):
             policy_rejected_logps=outputs[f"rejected_logps"],
             reference_chosen_logps=outputs[f"chosen_reference_logps"],
             reference_rejected_logps=outputs[f"rejected_reference_logps"],
-            beta=0.1,  # TODO: make this a hyperparameter
+            beta=self.cfg.training.beta,
         )
         outputs["loss"] = loss
 

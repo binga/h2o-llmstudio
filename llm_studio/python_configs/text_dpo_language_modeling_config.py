@@ -17,6 +17,7 @@ from llm_studio.python_configs.text_causal_language_modeling_config import (
 from llm_studio.src import possible_values
 from llm_studio.src.losses import text_dpo_language_modeling_losses
 from llm_studio.src.models import text_dpo_language_modeling_model
+from llm_studio.src.nesting import Dependency
 from llm_studio.src.plots import text_dpo_language_modeling_plots
 from llm_studio.src.utils.training_utils import generate_experiment_name
 
@@ -45,6 +46,7 @@ class ConfigNLPDPOLMDataset(ConfigNLPCausalLMDataset):
 @dataclass
 class ConfigDPOCausalLMTraining(ConfigNLPCausalLMTraining):
     learning_rate: float = 1e-6
+    beta: float = 0.2
     gradient_clip: float = 10.0
     loss_class: Any = text_dpo_language_modeling_losses.Losses
     loss_function: str = "DPOLoss"
@@ -53,6 +55,9 @@ class ConfigDPOCausalLMTraining(ConfigNLPCausalLMTraining):
 
     def __post_init__(self):
         super().__post_init__()
+        self._possible_values["beta"] = possible_values.Number(0.05, 0.5, 0.05)
+        self._order.insert("beta", after="learning_rate")
+        self._nesting.add("beta", dependencies=[Dependency(key="loss_function", value="DPOLoss", is_set=True)])
         self._visibility["lora"] = -1
 
 
