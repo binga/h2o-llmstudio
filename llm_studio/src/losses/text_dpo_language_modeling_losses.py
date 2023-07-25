@@ -50,7 +50,7 @@ class DPOLoss(nn.Module):
             beta * (policy_rejected_logps - reference_rejected_logps).detach()
         )
 
-        return losses.mean(), chosen_rewards, rejected_rewards
+        return losses.mean(), chosen_rewards.mean(), rejected_rewards.mean()
 
 
 class Losses:
