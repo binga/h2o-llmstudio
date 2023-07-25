@@ -124,10 +124,10 @@ class Model(nn.Module):
                     )
 
         loss, chosen_rewards, rejected_rewards = self.loss_fn(
-            policy_chosen_logps=outputs[f"chosen_logps"],
-            policy_rejected_logps=outputs[f"rejected_logps"],
-            reference_chosen_logps=outputs[f"chosen_reference_logps"],
-            reference_rejected_logps=outputs[f"rejected_reference_logps"],
+            policy_chosen_logps=outputs["chosen_logps"],
+            policy_rejected_logps=outputs["rejected_logps"],
+            reference_chosen_logps=outputs["chosen_reference_logps"],
+            reference_rejected_logps=outputs["rejected_reference_logps"],
             beta=self.cfg.training.beta,
         )
         outputs["loss"] = loss

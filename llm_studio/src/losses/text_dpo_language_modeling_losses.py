@@ -42,6 +42,7 @@ class DPOLoss(nn.Module):
         """
         pi_logratios = policy_chosen_logps - policy_rejected_logps
         ref_logratios = reference_chosen_logps - reference_rejected_logps
+        # logits are maximized when losses a
         logits = pi_logratios - ref_logratios
         losses = -F.logsigmoid(beta * logits)
 

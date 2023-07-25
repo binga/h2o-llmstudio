@@ -409,6 +409,12 @@ def run_train(
                             output_dict[key].item(),
                             step=cfg.environment._curr_step,
                         )
+                    cfg.logging._logger.log(
+                        "train",
+                        "reward_margin",
+                        output_dict["chosen_rewards"].item() - output_dict["rejected_rewards"].item(),
+                        step=cfg.environment._curr_step,
+                    )
 
                 cfg.logging._logger.log(
                     "train", "loss", losses[-1], step=cfg.environment._curr_step
