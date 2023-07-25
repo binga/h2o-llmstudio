@@ -403,17 +403,12 @@ def run_train(
                 # TODO refactor this
                 if cfg.training.loss_function == "DPOLoss":
                     for key in ["chosen_rewards", "rejected_rewards"]:
-                        if isinstance(output_dict[key], (float, int)) or (
-                            isinstance(output_dict[key], np.ndarray)
-                            and output_dict[key].size == 1
-                        ):
-                            if np.isfinite(output_dict[key]):
-                                cfg.logging._logger.log(
-                                    "train",
-                                    key,
-                                    output_dict[key],
-                                    step=cfg.environment._curr_step,
-                                )
+                        cfg.logging._logger.log(
+                            "train",
+                            key,
+                            output_dict[key],
+                            step=cfg.environment._curr_step,
+                        )
 
                 cfg.logging._logger.log(
                     "train", "loss", losses[-1], step=cfg.environment._curr_step
