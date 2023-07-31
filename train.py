@@ -412,7 +412,8 @@ def run_train(
                     cfg.logging._logger.log(
                         "train",
                         "reward_margin",
-                        output_dict["chosen_rewards"].item() - output_dict["rejected_rewards"].item(),
+                        output_dict["chosen_rewards"].item()
+                        - output_dict["rejected_rewards"].item(),
                         step=cfg.environment._curr_step,
                     )
 

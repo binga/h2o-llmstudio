@@ -4,8 +4,8 @@ import pandas as pd
 import torch
 
 from llm_studio.python_configs.text_dpo_language_modeling_config import (
-    ConfigProblemBase,
     ConfigNLPDPOLMDataset,
+    ConfigProblemBase,
 )
 from llm_studio.src.datasets.text_dpo_language_modeling_ds import CustomDataset
 from llm_studio.src.models.text_dpo_language_modeling_model import get_batch_logps
