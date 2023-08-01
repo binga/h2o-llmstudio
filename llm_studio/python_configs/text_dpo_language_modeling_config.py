@@ -29,7 +29,7 @@ class ConfigNLPDPOLMDataset(ConfigNLPCausalLMDataset):
     )
     # Always have full chat history. Chosen/Rejected prompt are only at the end of a conversation.
     limit_chained_samples: bool = True
-    mask_prompt_labels: bool = False
+    mask_prompt_labels: bool = True
 
     chosen_response_column: str = "chosen_response"
     rejected_response_column: str = "rejected_response"
