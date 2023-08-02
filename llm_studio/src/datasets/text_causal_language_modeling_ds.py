@@ -23,42 +23,16 @@ class CustomDataset(Dataset):
             cfg: config with all the hyperparameters
             mode: dataset mode. One of {"train", "validation"}
         """
+        assert mode in [
+            "train",
+            "validation",
+        ], f"There is no {mode} for the datasets"
 
         self.cfg = cfg
         self.mode = mode
         self.df = df.copy()
 
         self.indices = np.arange(len(self.df))
-
-        assert self.mode in [
-            "train",
-            "validation",
-        ], f"There is no {self.mode} for the datasets"
-
-        # Get the labels
-        has_all_columns = cfg.dataset.answer_column in self.df.columns
-        has_missing_values = False
-        if has_all_columns:
-            has_missing_values = (
-                self.df.shape[0]
-                != self.df[[cfg.dataset.answer_column]].dropna().shape[0]
-            )
-
-        if not has_all_columns or has_missing_values:
-            if has_missing_values:
-                message = (
-                    f"The {self.mode} DataFrame"
-                    f" column {cfg.dataset.answer_column}"
-                    " contain missing values."
-                )
-            else:
-                message = (
-                    f"The {self.mode} DataFrame "
-                    "does not contain the required column:"
-                    f" {cfg.dataset.answer_column}."
-                )
-
-            raise ValueError(message)
 
         self.tokenizer = get_tokenizer(cfg)
 
@@ -71,21 +45,15 @@ class CustomDataset(Dataset):
 
         self.parent_ids = None
         if self.cfg.dataset.parent_id_column != "None":
-            if "id" not in self.df.columns:
-                logger.warning(
-                    f"When using parent column, the dataframe requires an 'id' column. "
-                    f"Disabling functionality for mode {self.mode}."
-                )
-            else:
-                self.parent_ids = self.df[self.cfg.dataset.parent_id_column].values
-                self.df_id_to_idx = {v: k for k, v in enumerate(self.df["id"].values)}
+            self.parent_ids = self.df[self.cfg.dataset.parent_id_column].values
+            self.df_id_to_idx = {v: k for k, v in enumerate(self.df["id"].values)}
 
-                # limit chained samples to the longest chain
-                if self.cfg.dataset.limit_chained_samples and self.mode == "train":
-                    unique_parent_ids = set(self.parent_ids)
-                    self.indices = self.indices[
-                        [id not in unique_parent_ids for id in self.df["id"].values]
-                    ]
+            # limit chained samples to the longest chain
+            if self.cfg.dataset.limit_chained_samples and self.mode == "train":
+                unique_parent_ids = set(self.parent_ids)
+                self.indices = self.indices[
+                    [id not in unique_parent_ids for id in self.df["id"].values]
+                ]
 
         self.systems = None
         if self.cfg.dataset.system_column != "None":
@@ -342,6 +310,20 @@ class CustomDataset(Dataset):
                 "Did not find any conversation start. "
                 "Please ensure that some parent ids are empty."
             )
+
+        assert cfg.dataset.answer_column in df.columns, (
+            f"Answer column {cfg.dataset.answer_column} not found in the "
+            f"{mode} DataFrame."
+        )
+        assert df.shape[0] == df[[cfg.dataset.answer_column]].dropna().shape[0], (
+            f"The {mode} DataFrame"
+            f" column {cfg.dataset.answer_column}"
+            " contains missing values."
+        )
+        if cfg.dataset.parent_id_column != "None":
+            assert (
+                "id" in df.columns
+            ), f"When using parent column, the dataframe requires an 'id' column. "
 
     def __getitem__(self, idx: int) -> Dict:
         """Reads a single text observation."""
