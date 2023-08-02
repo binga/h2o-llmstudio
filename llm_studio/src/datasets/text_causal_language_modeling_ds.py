@@ -34,11 +34,7 @@ class CustomDataset(Dataset):
 
         self.indices = np.arange(len(self.df))
 
-        self.tokenizer = get_tokenizer(cfg)
-
-        self.raw_prompts = get_texts(df, self.cfg, separator="")
-        self.prompts = [self.parse_prompt(cfg, prompt) for prompt in self.raw_prompts]
-
+        self.prompts = get_texts(df, self.cfg, separator="")
         self.answers = (
             self.df[self.cfg.dataset.answer_column].astype(str).values.tolist()
         )
@@ -73,8 +69,13 @@ class CustomDataset(Dataset):
                 )
                 self.systems = [self.parse_system(cfg, system) for system in systems]
 
-        if self.cfg.environment._local_rank == 0:
-            logger.info(f"Sample prompt: {self.prompts[0]}")
+        self._tokenizer = None
+
+    def tokenizer(self):
+        # Delay the tokenizer initialization until it is needed explicitly
+        if self._tokenizer is None:
+            self._tokenizer = get_tokenizer(self.cfg)
+        return self._tokenizer
 
     @staticmethod
     def parse_prompt(cfg: Any, prompt: str):
@@ -229,7 +230,6 @@ class CustomDataset(Dataset):
     @staticmethod
     def clean_output(
         output: Dict,
-        prompts: List[str],
         cfg: Any,
     ):
         output["predicted_text"] = output["predicted_text"].tolist()
@@ -244,7 +244,7 @@ class CustomDataset(Dataset):
 
     def postprocess_output(self, cfg, df: pd.DataFrame, output: Dict) -> Dict:
         if not cfg.prediction.metric == "Perplexity":
-            output = self.clean_output(output, self.prompts, cfg)
+            output = self.clean_output(output, cfg)
 
         output["target_text"] = self.answers
 
@@ -412,7 +412,7 @@ class CustomDataset(Dataset):
 
         if self.cfg.training.use_rlhf:
             sample["reward_model_prompt_text"] = (
-                self.get_reward_model_parent_prompt_text(idx) + self.raw_prompts[idx]
+                self.get_reward_model_parent_prompt_text(idx) + self.prompts[idx]
             )
         return sample
 
@@ -424,7 +424,7 @@ class CustomDataset(Dataset):
             )["input_ids"]
         else:
             system_encoding = torch.empty(0)
-        prompt = self.prompts[idx]
+        prompt = self.parse_prompt(self.cfg, self.prompts[idx])
         answer = self.answers[idx]
 
         prompt_encoding = self.encode(
@@ -488,7 +488,7 @@ class CustomDataset(Dataset):
     def get_reward_model_parent_prompt_text(self, idx):
         return "".join(
             [
-                self.raw_prompts[int(parent_idx)]
+                self.prompts[int(parent_idx)]
                 + "<|endoftext|>"
                 + self.answers[int(parent_idx)]
                 + "<|endoftext|>"
