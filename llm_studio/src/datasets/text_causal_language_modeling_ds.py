@@ -430,10 +430,9 @@ class CustomDataset(Dataset):
         prompt_encoding = self.encode(
             self.tokenizer, prompt, self.cfg.tokenizer.max_length_prompt, "left"
         )["input_ids"]
-        if self.cfg.dataset.add_eos_token_to_answer:
-            max_length_answer = self.cfg.tokenizer.max_length_answer - 1
-        else:
-            max_length_answer = self.cfg.tokenizer.max_length_answer
+        max_length_answer = self.cfg.tokenizer.max_length_answer - int(
+            self.cfg.dataset.add_eos_token_to_answer
+        )
         answer_encoding = self.encode(
             self.tokenizer, answer, max_length_answer, "right"
         )["input_ids"]
