@@ -30,9 +30,9 @@ def test_clean_output():
     cfg = mock.MagicMock()
     cfg.tokenizer._stop_words = ["<stop>", "<stop2>", "<stop3>"]
 
-    predicted_text_clean = CustomDataset.clean_output(
-        output=output, cfg=cfg
-    )["predicted_text"]
+    predicted_text_clean = CustomDataset.clean_output(output=output, cfg=cfg)[
+        "predicted_text"
+    ]
     assert predicted_text_clean == [
         "This is a test",
         "This is a test",

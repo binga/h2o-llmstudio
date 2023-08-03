@@ -1,5 +1,7 @@
 import dataclasses
 import importlib
+import os
+import uuid
 from types import ModuleType
 from typing import Any, Dict, List, Type
 
@@ -209,3 +211,21 @@ def load_config_yaml(path: str):
         raise NotImplementedError(f"Problem Type {problem_type} not implemented")
 
     return ConfigProblemBase.from_dict(cfg_dict)
+
+
+def copy_config(cfg: Any, tmp_dir) -> Any:
+    """Makes a copy of the config
+
+    Args:
+        tmp_dir:
+        cfg: config object
+    Returns:
+        copy of the config
+    """
+    # make unique yaml file using uuid
+    os.makedirs(tmp_dir, exist_ok=True)
+    tmp_file = os.path.join(tmp_dir, str(uuid.uuid4()) + ".yaml")
+    save_config_yaml(tmp_file, cfg)
+    cfg = load_config_yaml(tmp_file)
+    os.remove(tmp_file)
+    return cfg

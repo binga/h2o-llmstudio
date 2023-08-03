@@ -567,9 +567,11 @@ def run(cfg: Any) -> None:
     train_dataloader = get_train_dataloader(train_ds=train_dataset, cfg=cfg)
     val_dataloader = get_val_dataloader(val_ds=val_dataset, cfg=cfg)
 
-
     if cfg.environment._local_rank == 0:
-        logger.info(f"Sample prompt: {train_dataset.parse_prompt(cfg, train_dataset.prompts[0])}")
+        logger.info(
+            f"Sample prompt: "
+            f"{train_dataset.parse_prompt(cfg, train_dataset.prompts[0])}"
+        )
 
     if cfg.environment._local_rank == 0:
         total_training_steps = (

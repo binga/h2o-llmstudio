@@ -45,7 +45,7 @@ class CustomDataset(Dataset):
             self.df_id_to_idx = {v: k for k, v in enumerate(self.df["id"].values)}
 
             # limit chained samples to the longest chain
-            if self.cfg.dataset.limit_chained_samples and self.mode == "train":
+            if self.cfg.dataset.limit_chained_samples:
                 unique_parent_ids = set(self.parent_ids)
                 self.indices = self.indices[
                     [id not in unique_parent_ids for id in self.df["id"].values]
@@ -71,8 +71,10 @@ class CustomDataset(Dataset):
 
         self._tokenizer = None
 
+    @property
     def tokenizer(self):
         # Delay the tokenizer initialization until it is needed explicitly
+        # Dataset is used in app to plot samples, but tokenizer is not needed there
         if self._tokenizer is None:
             self._tokenizer = get_tokenizer(self.cfg)
         return self._tokenizer
@@ -323,7 +325,7 @@ class CustomDataset(Dataset):
         if cfg.dataset.parent_id_column != "None":
             assert (
                 "id" in df.columns
-            ), f"When using parent column, the dataframe requires an 'id' column. "
+            ), "When using parent column, the dataframe requires an 'id' column. "
 
     def __getitem__(self, idx: int) -> Dict:
         """Reads a single text observation."""
@@ -486,7 +488,7 @@ class CustomDataset(Dataset):
 
     def get_chained_prompt_text(self, idx, text_separator=" "):
         ids = self.get_parent_ids(idx) + [idx]
-        system_prompt = self.systems[ids[0]]
+        system_prompt = self.systems[ids[0]] if self.systems is not None else ""
         history = "".join(
             [
                 self.prompts[int(parent_idx)]
@@ -497,13 +499,14 @@ class CustomDataset(Dataset):
             ]
         )
 
-        return (
-            system_prompt
-            + text_separator
-            + history
-            + text_separator
-            + self.prompts[idx]
-        )
+        prompt_text = ""
+        if system_prompt:
+            # No text separator as system prompt is part of the prompt
+            prompt_text += system_prompt
+        if history:
+            prompt_text += history
+        prompt_text += self.prompts[idx]
+        return prompt_text
 
     def pad_tokens(
         self,
