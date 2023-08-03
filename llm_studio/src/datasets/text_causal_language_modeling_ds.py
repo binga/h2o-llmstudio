@@ -411,9 +411,9 @@ class CustomDataset(Dataset):
             sample["prompt_input_ids"][: len(system_encoding)] = system_encoding
 
         if self.cfg.training.use_rlhf:
-            sample["reward_model_prompt_text"] = (
-                self.get_reward_model_parent_prompt_text(idx) + self.prompts[idx]
-            )
+            sample[
+                "reward_model_prompt_text"
+            ] = self.get_chained_prompt_text(idx, text_separator="<|endoftext|>")
         return sample
 
     def _get_sample_encoding(self, idx) -> List:
@@ -484,15 +484,18 @@ class CustomDataset(Dataset):
                 parent_encodings.insert(0, self._get_sample_encoding(int(rnd_idx)))
         return parent_encodings
 
-    def get_reward_model_parent_prompt_text(self, idx):
-        return "".join(
-            [
-                self.prompts[int(parent_idx)]
-                + "<|endoftext|>"
-                + self.answers[int(parent_idx)]
-                + "<|endoftext|>"
-                for parent_idx in self.get_parent_ids(idx)
-            ]
+    def get_chained_prompt_text(self, idx, text_separator=" "):
+        return (
+            "".join(
+                [
+                    self.prompts[int(parent_idx)]
+                    + text_separator
+                    + self.answers[int(parent_idx)]
+                    + text_separator
+                    for parent_idx in self.get_parent_ids(idx)
+                ]
+            )
+            + self.prompts[idx]
         )
 
     def pad_tokens(
@@ -502,7 +505,6 @@ class CustomDataset(Dataset):
         max_length,
         pad_token_id,
         prefix="",
-        system_ids=None,
     ):
         sample = {}
 
