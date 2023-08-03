@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 import pandas as pd
 
+from llm_studio.src.datasets.text_causal_language_modeling_ds import CustomDataset
 from llm_studio.src.datasets.text_utils import get_texts, get_tokenizer
 from llm_studio.src.utils.data_utils import (
     read_dataframe_drop_missing_labels,
@@ -92,7 +93,8 @@ class Plots:
         df = read_dataframe_drop_missing_labels(cfg.dataset.train_dataframe, cfg)
         df = df.iloc[sample_indices(len(df), Plots.NUM_TEXTS)]
 
-        input_texts = get_texts(df, cfg, separator="")
+        dataset = CustomDataset(df, cfg, mode="validation")
+        input_texts = [dataset.get_chained_prompt_text(i) for i in range(len(dataset))]
 
         if cfg.dataset.answer_column in df.columns:
             target_texts = df[cfg.dataset.answer_column].values
@@ -118,7 +120,8 @@ class Plots:
     ) -> PlotData:
         assert mode in ["validation"]
 
-        input_texts = get_texts(val_df, cfg, separator="")
+        dataset = CustomDataset(val_df, cfg, mode="validation")
+        input_texts = [dataset.get_chained_prompt_text(i) for i in range(len(dataset))]
         target_text = val_outputs["target_text"]
         if "predicted_text" in val_outputs.keys():
             predicted_text = val_outputs["predicted_text"]
