@@ -32,6 +32,8 @@ class CustomDataset(Dataset):
         self.mode = mode
         self.df = df.copy()
 
+        self.tokenizer = get_tokenizer(self.cfg)
+
         self.indices = np.arange(len(self.df))
 
         self.prompts = get_texts(df, self.cfg, separator="")
@@ -68,16 +70,6 @@ class CustomDataset(Dataset):
                     self.df[self.cfg.dataset.system_column].astype(str).values.tolist()
                 )
                 self.systems = [self.parse_system(cfg, system) for system in systems]
-
-        self._tokenizer = None
-
-    @property
-    def tokenizer(self):
-        # Delay the tokenizer initialization until it is needed explicitly
-        # Dataset is used in app to plot samples, but tokenizer is not needed there
-        if self._tokenizer is None:
-            self._tokenizer = get_tokenizer(self.cfg)
-        return self._tokenizer
 
     @staticmethod
     def parse_prompt(cfg: Any, prompt: str):
