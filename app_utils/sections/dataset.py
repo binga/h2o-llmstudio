@@ -502,7 +502,7 @@ async def dataset_import(
                 plot_item = ui.markup(content=plot.data)
             elif plot.encoding == "df":
                 df = pd.read_parquet(plot.data)
-                df = df.iloc[:100]
+                df = df.iloc[:2000]
                 min_widths = {"Content": "800"}
                 plot_item = ui_table_from_df(
                     q=q,
@@ -1090,7 +1090,7 @@ async def show_visualization_tab(cfg, q):
         card = ui.markup_card(box="first", title="", content=plot.data)
     elif plot.encoding == "df":
         df = pd.read_parquet(plot.data)
-        df = df.iloc[:100]
+        df = df.iloc[:2000]
         min_widths = {"Content": "800"}
         card = ui.form_card(
             box="first",

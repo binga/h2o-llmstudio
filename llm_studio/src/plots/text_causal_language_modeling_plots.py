@@ -137,16 +137,12 @@ class Plots:
         df: pd.DataFrame,
         cfg,
     ) -> Tuple[List[List[str]], List[str]]:
-        text_separator = "TEXT SEPARATOR"
         limit_chained_samples = cfg.dataset.limit_chained_samples
         cfg.dataset.limit_chained_samples = True
         dataset = CustomDataset(df, cfg, mode="validation")
         input_text_list = [
-            dataset.get_chained_prompt_text(i, text_separator=text_separator)
+            dataset.get_chained_prompt_text_list(i)
             for i in dataset.indices
-        ]
-        input_text_list = [
-            input_text.split(text_separator) for input_text in input_text_list
         ]
         target_texts = [dataset.answers[i] for i in dataset.indices]
         cfg.dataset.limit_chained_samples = limit_chained_samples
@@ -159,7 +155,7 @@ class Plots:
         assert mode in ["validation"]
 
         dataset = CustomDataset(val_df, cfg, mode="validation")
-        input_texts = [dataset.get_chained_prompt_text(i) for i in range(len(dataset))]
+        input_texts = [dataset.get_chained_prompt_text_list(i) for i in range(len(dataset))]
         target_text = val_outputs["target_text"]
         if "predicted_text" in val_outputs.keys():
             predicted_text = val_outputs["predicted_text"]
@@ -170,7 +166,7 @@ class Plots:
 
         df = pd.DataFrame(
             {
-                "Input Text": input_texts,
+                "Input Text": ["\n".join(input_text) for input_text in input_texts],
                 "Target Text": target_text,
                 "Predicted Text": predicted_text,
             }
