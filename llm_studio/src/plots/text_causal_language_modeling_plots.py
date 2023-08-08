@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 
@@ -92,25 +92,15 @@ class Plots:
     @classmethod
     def plot_data(cls, cfg) -> PlotData:
         df = read_dataframe_drop_missing_labels(cfg.dataset.train_dataframe, cfg)
+        input_text_list, target_texts = cls.get_chained_conversations(df, cfg)
 
-        limit_chained_samples = cfg.dataset.limit_chained_samples
-        cfg.dataset.limit_chained_samples = True
-        dataset = CustomDataset(df, cfg, mode="validation")
-        text_separator = "TEXT SEPARATOR"
-        input_texts = [
-            dataset.get_chained_prompt_text(i, text_separator=text_separator)
-            for i in dataset.indices
-        ]
-        target_texts = [dataset.answers[i] for i in dataset.indices]
-        cfg.dataset.limit_chained_samples = limit_chained_samples
-
-        idxs = sample_indices(len(dataset.indices), Plots.NUM_TEXTS)
-        input_texts = [input_texts[i] for i in idxs]
+        idxs = sample_indices(len(input_text_list), Plots.NUM_TEXTS)
+        input_text_list = [input_text_list[i] for i in idxs]
         target_texts = [target_texts[i] for i in idxs]
 
         df = pd.DataFrame(
             {
-                "Input Text": input_texts,
+                "Input Text List": input_text_list,
                 "Target Text": target_texts,
             }
         )
@@ -119,8 +109,8 @@ class Plots:
 
         i = 0
         for sample_number, row in df.iterrows():
-            input_texts = row["Input Text"].split(text_separator)
-            for j, input_text in enumerate(input_texts):
+            input_text_list = row["Input Text List"]
+            for j, input_text in enumerate(input_text_list):
                 suffix = "- Prompt" if j % 2 == 0 else "- Answer "
                 df_transposed.loc[i] = [
                     sample_number,
@@ -140,6 +130,27 @@ class Plots:
         df_transposed.to_parquet(path)
 
         return PlotData(path, encoding="df")
+
+    @classmethod
+    def get_chained_conversations(
+        cls,
+        df: pd.DataFrame,
+        cfg,
+    ) -> Tuple[List[List[str]], List[str]]:
+        text_separator = "TEXT SEPARATOR"
+        limit_chained_samples = cfg.dataset.limit_chained_samples
+        cfg.dataset.limit_chained_samples = True
+        dataset = CustomDataset(df, cfg, mode="validation")
+        input_text_list = [
+            dataset.get_chained_prompt_text(i, text_separator=text_separator)
+            for i in dataset.indices
+        ]
+        input_text_list = [
+            input_text.split(text_separator) for input_text in input_text_list
+        ]
+        target_texts = [dataset.answers[i] for i in dataset.indices]
+        cfg.dataset.limit_chained_samples = limit_chained_samples
+        return input_text_list, target_texts
 
     @classmethod
     def plot_validation_predictions(

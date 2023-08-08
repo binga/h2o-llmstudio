@@ -45,6 +45,7 @@ from llm_studio.src.utils.data_utils import (
     read_dataframe_drop_missing_labels,
     sanity_check,
 )
+
 from .common import clean_dashboard
 from .historgram_card import HistogramCard
 
@@ -1151,39 +1152,28 @@ def get_children(array, id, parent_id_column="owner"):
     return result
 
 
-def get_conversation_chains(id_to_parent_id: dict, unique_ids: List):
-    chains = set()
-    for initial_id in unique_ids:
-        current_id = initial_id
-        chain = []
-
-        while current_id in unique_ids:
-            chain.append(current_id)
-            current_id = id_to_parent_id.get(current_id)
-
-        chain.reverse()
-        chains.add(tuple(chain))
-
-    longest_unique_chains = []
-    for chain in chains:
-        if not any([set(chain) < set(other) for other in chains]):
-            longest_unique_chains.append(chain)
-
-    return longest_unique_chains
-
-
 async def show_statistics_tab(dataset, cfg, q):
     df_train = read_dataframe(dataset["train_dataframe"])
-    df_train["text_length_prompt"] = 0
-    for prompt_column in cfg.dataset.prompt_column:
-        df_train["text_length_prompt"] += df_train[prompt_column].str.len()
-    df_train["text_length_answer"] = df_train[cfg.dataset.answer_column].str.len()
+
+    (
+        input_text_list,
+        target_texts,
+    ) = cfg.logging.plots_class.get_chained_conversations(df=df_train, cfg=cfg)
+
+    df_stats = pd.DataFrame(
+        {"input_text_list": input_text_list, "target_text": target_texts}
+    )
+    df_stats["number_of_prompts"] = df_stats["input_text_list"].apply(len)
+    df_stats["text_length_prompt"] = df_stats["input_text_list"].apply(
+        lambda x: len("".join(x))
+    )
+    df_stats["text_length_answer"] = df_stats["target_text"].str.len()
 
     histogram_prompt = HistogramCard(
         column="text_length_prompt",
         title="Text Length Prompt Distribution (split by whitespace)",
         histogram_box="first",
-    )(q=q, df=df_train)
+    )(q=q, df=df_stats)
 
     q.page["dataset/display/statistics/prompt"] = histogram_prompt
 
@@ -1191,29 +1181,16 @@ async def show_statistics_tab(dataset, cfg, q):
         column="text_length_answer",
         title="Text Length Answer Distribution (split by whitespace)",
         histogram_box="second",
-    )(q=q, df=df_train)
+    )(q=q, df=df_stats)
     q.page["dataset/display/statistics/answer"] = histogram_answer
 
     if cfg.dataset.parent_id_column != "None":
-        # find all maximally long conversations, i.e. conversations that have no parent
-        unique_ids = set(df_train["id"].tolist())
-        id_to_parent_id = (
-            df_train.loc[~df_train[cfg.dataset.parent_id_column].isna()]
-            .set_index("id")[cfg.dataset.parent_id_column]
-            .to_dict()
-        )
-        chains = get_conversation_chains(id_to_parent_id, unique_ids)
-
-        df_length = pd.DataFrame(
-            [{"id": chain[0], "length": len(chain)} for chain in chains]
-        )
-
         histogram_parent_id = HistogramCard(
-            column="length",
+            column="number_of_prompts",
             title=f"Distribution of number of prompt-answer turns per conversation, "
             f" as indicated by {cfg.dataset.parent_id_column}",
             histogram_box="third",
-        )(q=q, df=df_length)
+        )(q=q, df=df_stats)
         q.page["dataset/display/statistics/parent_id"] = histogram_parent_id
 
     q.client.delete_cards.add("dataset/display/statistics/prompt")
