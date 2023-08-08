@@ -23,69 +23,35 @@ class CustomDataset(Dataset):
             cfg: config with all the hyperparameters
             mode: dataset mode. One of {"train", "validation"}
         """
+        assert mode in [
+            "train",
+            "validation",
+        ], f"There is no {mode} for the datasets"
 
         self.cfg = cfg
         self.mode = mode
         self.df = df.copy()
 
+        self.tokenizer = get_tokenizer(self.cfg)
+
         self.indices = np.arange(len(self.df))
 
-        assert self.mode in [
-            "train",
-            "validation",
-        ], f"There is no {self.mode} for the datasets"
-
-        # Get the labels
-        has_all_columns = cfg.dataset.answer_column in self.df.columns
-        has_missing_values = False
-        if has_all_columns:
-            has_missing_values = (
-                self.df.shape[0]
-                != self.df[[cfg.dataset.answer_column]].dropna().shape[0]
-            )
-
-        if not has_all_columns or has_missing_values:
-            if has_missing_values:
-                message = (
-                    f"The {self.mode} DataFrame"
-                    f" column {cfg.dataset.answer_column}"
-                    " contain missing values."
-                )
-            else:
-                message = (
-                    f"The {self.mode} DataFrame "
-                    "does not contain the required column:"
-                    f" {cfg.dataset.answer_column}."
-                )
-
-            raise ValueError(message)
-
-        self.tokenizer = get_tokenizer(cfg)
-
-        self.raw_prompts = get_texts(df, self.cfg, separator="")
-        self.prompts = [self.parse_prompt(cfg, prompt) for prompt in self.raw_prompts]
-
+        self.prompts = get_texts(df, self.cfg, separator="")
         self.answers = (
             self.df[self.cfg.dataset.answer_column].astype(str).values.tolist()
         )
 
         self.parent_ids = None
         if self.cfg.dataset.parent_id_column != "None":
-            if "id" not in self.df.columns:
-                logger.warning(
-                    f"When using parent column, the dataframe requires an 'id' column. "
-                    f"Disabling functionality for mode {self.mode}."
-                )
-            else:
-                self.parent_ids = self.df[self.cfg.dataset.parent_id_column].values
-                self.df_id_to_idx = {v: k for k, v in enumerate(self.df["id"].values)}
+            self.parent_ids = self.df[self.cfg.dataset.parent_id_column].values
+            self.df_id_to_idx = {v: k for k, v in enumerate(self.df["id"].values)}
 
-                # limit chained samples to the longest chain
-                if self.cfg.dataset.limit_chained_samples and self.mode == "train":
-                    unique_parent_ids = set(self.parent_ids)
-                    self.indices = self.indices[
-                        [id not in unique_parent_ids for id in self.df["id"].values]
-                    ]
+            # limit chained samples to the longest chain
+            if self.cfg.dataset.limit_chained_samples:
+                unique_parent_ids = set(self.parent_ids)
+                self.indices = self.indices[
+                    [id not in unique_parent_ids for id in self.df["id"].values]
+                ]
 
         self.systems = None
         if self.cfg.dataset.system_column != "None":
@@ -104,9 +70,6 @@ class CustomDataset(Dataset):
                     self.df[self.cfg.dataset.system_column].astype(str).values.tolist()
                 )
                 self.systems = [self.parse_system(cfg, system) for system in systems]
-
-        if self.cfg.environment._local_rank == 0:
-            logger.info(f"Sample prompt: {self.prompts[0]}")
 
     @staticmethod
     def parse_prompt(cfg: Any, prompt: str):
@@ -261,7 +224,6 @@ class CustomDataset(Dataset):
     @staticmethod
     def clean_output(
         output: Dict,
-        prompts: List[str],
         cfg: Any,
     ):
         output["predicted_text"] = output["predicted_text"].tolist()
@@ -276,7 +238,7 @@ class CustomDataset(Dataset):
 
     def postprocess_output(self, cfg, df: pd.DataFrame, output: Dict) -> Dict:
         if not cfg.prediction.metric == "Perplexity":
-            output = self.clean_output(output, self.prompts, cfg)
+            output = self.clean_output(output, cfg)
 
         output["target_text"] = self.answers
 
@@ -342,6 +304,20 @@ class CustomDataset(Dataset):
                 "Did not find any conversation start. "
                 "Please ensure that some parent ids are empty."
             )
+
+        assert cfg.dataset.answer_column in df.columns, (
+            f"Answer column {cfg.dataset.answer_column} not found in the "
+            f"{mode} DataFrame."
+        )
+        assert df.shape[0] == df[[cfg.dataset.answer_column]].dropna().shape[0], (
+            f"The {mode} DataFrame"
+            f" column {cfg.dataset.answer_column}"
+            " contains missing values."
+        )
+        if cfg.dataset.parent_id_column != "None":
+            assert (
+                "id" in df.columns
+            ), "When using parent column, the dataframe requires an 'id' column. "
 
     def __getitem__(self, idx: int) -> Dict:
         """Reads a single text observation."""
@@ -444,8 +420,8 @@ class CustomDataset(Dataset):
             sample["prompt_input_ids"][: len(system_encoding)] = system_encoding
 
         if self.cfg.training.use_rlhf:
-            sample["reward_model_prompt_text"] = (
-                self.get_reward_model_parent_prompt_text(idx) + self.raw_prompts[idx]
+            sample["reward_model_prompt_text"] = self.get_chained_prompt_text(
+                idx, text_separator="<|endoftext|>"
             )
         return sample
 
@@ -457,16 +433,15 @@ class CustomDataset(Dataset):
             )["input_ids"]
         else:
             system_encoding = torch.empty(0)
-        prompt = self.prompts[idx]
+        prompt = self.parse_prompt(self.cfg, self.prompts[idx])
         answer = self.answers[idx]
 
         prompt_encoding = self.encode(
             self.tokenizer, prompt, self.cfg.tokenizer.max_length_prompt, "left"
         )["input_ids"]
-        if self.cfg.dataset.add_eos_token_to_answer:
-            max_length_answer = self.cfg.tokenizer.max_length_answer - 1
-        else:
-            max_length_answer = self.cfg.tokenizer.max_length_answer
+        max_length_answer = self.cfg.tokenizer.max_length_answer - int(
+            self.cfg.dataset.add_eos_token_to_answer
+        )
         answer_encoding = self.encode(
             self.tokenizer, answer, max_length_answer, "right"
         )["input_ids"]
@@ -518,16 +493,27 @@ class CustomDataset(Dataset):
                 parent_encodings.insert(0, self._get_sample_encoding(int(rnd_idx)))
         return parent_encodings
 
-    def get_reward_model_parent_prompt_text(self, idx):
-        return "".join(
+    def get_chained_prompt_text(self, idx, text_separator=" "):
+        ids = self.get_parent_ids(idx) + [idx]
+        system_prompt = self.systems[ids[0]] if self.systems is not None else ""
+        history = "".join(
             [
-                self.raw_prompts[int(parent_idx)]
-                + "<|endoftext|>"
+                self.prompts[int(parent_idx)]
+                + text_separator
                 + self.answers[int(parent_idx)]
-                + "<|endoftext|>"
-                for parent_idx in self.get_parent_ids(idx)
+                + text_separator
+                for parent_idx in ids[:-1]
             ]
         )
+
+        prompt_text = ""
+        if system_prompt:
+            # No text separator as system prompt is part of the prompt
+            prompt_text += system_prompt
+        if history:
+            prompt_text += history
+        prompt_text += self.prompts[idx]
+        return prompt_text
 
     def pad_tokens(
         self,
@@ -537,7 +523,6 @@ class CustomDataset(Dataset):
         pad_token_id,
         direction="left",
         prefix="",
-        system_ids=None,
     ):
         sample = {}
 

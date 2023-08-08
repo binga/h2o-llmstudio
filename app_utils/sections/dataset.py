@@ -8,7 +8,7 @@ from typing import List, Optional
 
 import pandas as pd
 from h2o_wave import Q, ui
-from h2o_wave.types import ImageCard, MarkupCard, StatListItem, Tab
+from h2o_wave.types import FormCard, ImageCard, MarkupCard, StatListItem, Tab
 
 from app_utils.config import default_cfg
 from app_utils.db import Dataset
@@ -499,8 +499,23 @@ async def dataset_import(
                 plot_item = ui.image(title="", type="png", image=plot.data)
             elif plot.encoding == "html":
                 plot_item = ui.markup(content=plot.data)
-            else:
-                raise ValueError(f"Unknown plot encoding `{plot.encoding}`")
+            elif plot.encoding == "df":
+                df = pd.read_parquet(plot.data)
+                df = df.iloc[:100]
+                min_widths = {"Content": "800"}
+                plot_item = ui_table_from_df(
+                    q=q,
+                    df=df,
+                    name="experiment/display/table",
+                    markdown_cells=list(df.columns),
+                    searchables=list(df.columns),
+                    downloadable=True,
+                    resettable=True,
+                    min_widths=min_widths,
+                    height="calc(100vh - 245px)",
+                    max_char_length=50_000,
+                    cell_overflow="tooltip",
+                )
 
             items = [ui.markup(content=header), ui.message_bar(text=text), plot_item]
             valid_visualization = True
@@ -1076,6 +1091,48 @@ async def show_visualization_tab(cfg, q):
         raise ValueError(f"Unknown plot encoding `{plot.encoding}`")
     q.page["dataset/display/visualization"] = card
     q.client.delete_cards.add("dataset/display/visualization")
+    elif q.client["dataset/display/tab"] == "dataset/display/visualization":
+        try:
+            plot = cfg.logging.plots_class.plot_data(cfg)
+        except Exception as error:
+            logger.error(f"Error while plotting data preview: {error}", exc_info=True)
+            plot = cfg.logging.plots_class.plot_empty(
+                cfg, error="Error while plotting data."
+            )
+
+        card: ImageCard | MarkupCard | FormCard
+        if plot.encoding == "image":
+            card = ui.image_card(box="first", title="", type="png", image=plot.data)
+        elif plot.encoding == "html":
+            card = ui.markup_card(box="first", title="", content=plot.data)
+        elif plot.encoding == "df":
+            df = pd.read_parquet(plot.data)
+            df = df.iloc[:100]
+            min_widths = {"Content": "800"}
+            card = ui.form_card(
+                box="first",
+                items=[
+                    ui_table_from_df(
+                        q=q,
+                        df=df,
+                        name="dataset/display/visualization/table",
+                        markdown_cells=list(df.columns),
+                        searchables=list(df.columns),
+                        downloadable=True,
+                        resettable=True,
+                        min_widths=min_widths,
+                        height="calc(100vh - 245px)",
+                        max_char_length=50_000,
+                        cell_overflow="tooltip",
+                    )
+                ],
+            )
+
+        else:
+            raise ValueError(f"Unknown plot encoding `{plot.encoding}`")
+
+        q.page["dataset/display/visualization"] = card
+        q.client.delete_cards.add("dataset/display/visualization")
 
 
 async def show_summary_tab(dataset_id, q):
