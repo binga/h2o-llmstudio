@@ -1140,7 +1140,7 @@ async def show_statistics_tab(dataset, cfg, q):
     (
         input_text_list,
         target_texts,
-    ) = cfg.logging.plots_class.get_chained_conversations(df=df_train, cfg=cfg)
+    ) = cfg.logging.plots_class.get_chained_conversations(df=df_train, cfg=cfg, limit_chained_samples=True)
 
     df_stats = pd.DataFrame(
         {"input_text_list": input_text_list, "target_text": target_texts}

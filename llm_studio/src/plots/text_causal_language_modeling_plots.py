@@ -92,7 +92,7 @@ class Plots:
     @classmethod
     def plot_data(cls, cfg) -> PlotData:
         df = read_dataframe_drop_missing_labels(cfg.dataset.train_dataframe, cfg)
-        input_text_list, target_texts = cls.get_chained_conversations(df, cfg)
+        input_text_list, target_texts = cls.get_chained_conversations(df, cfg, True)
 
         idxs = sample_indices(len(input_text_list), Plots.NUM_TEXTS)
         input_text_list = [input_text_list[i] for i in idxs]
@@ -133,19 +133,17 @@ class Plots:
 
     @classmethod
     def get_chained_conversations(
-        cls,
-        df: pd.DataFrame,
-        cfg,
+        cls, df: pd.DataFrame, cfg, limit_chained_samples=True
     ) -> Tuple[List[List[str]], List[str]]:
-        limit_chained_samples = cfg.dataset.limit_chained_samples
-        cfg.dataset.limit_chained_samples = True
+        limit_chained_samples_default = cfg.dataset.limit_chained_samples
+        if limit_chained_samples:
+            cfg.dataset.limit_chained_samples = True
         dataset = CustomDataset(df, cfg, mode="validation")
         input_text_list = [
-            dataset.get_chained_prompt_text_list(i)
-            for i in dataset.indices
+            dataset.get_chained_prompt_text_list(i) for i in dataset.indices
         ]
         target_texts = [dataset.answers[i] for i in dataset.indices]
-        cfg.dataset.limit_chained_samples = limit_chained_samples
+        cfg.dataset.limit_chained_samples = limit_chained_samples_default
         return input_text_list, target_texts
 
     @classmethod
@@ -153,22 +151,24 @@ class Plots:
         cls, val_outputs: Dict, cfg: Any, val_df: pd.DataFrame, mode: str
     ) -> PlotData:
         assert mode in ["validation"]
+        input_text_list, target_texts = cls.get_chained_conversations(
+            val_df, cfg, limit_chained_samples=False
+        )
 
-        dataset = CustomDataset(val_df, cfg, mode="validation")
-        input_texts = [dataset.get_chained_prompt_text_list(i) for i in range(len(dataset))]
-        target_text = val_outputs["target_text"]
         if "predicted_text" in val_outputs.keys():
-            predicted_text = val_outputs["predicted_text"]
+            predicted_texts = val_outputs["predicted_text"]
         else:
-            predicted_text = [
+            predicted_texts = [
                 "No predictions are generated for the selected metric"
-            ] * len(target_text)
+            ] * len(target_texts)
 
         df = pd.DataFrame(
             {
-                "Input Text": ["\n".join(input_text) for input_text in input_texts],
-                "Target Text": target_text,
-                "Predicted Text": predicted_text,
+                "Input Text": [
+                    "\n".join(input_text) for input_text in input_text_lists
+                ],
+                "Target Text": target_texts,
+                "Predicted Text": predicted_texts,
             }
         )
         df["Input Text"] = df["Input Text"].apply(format_for_markdown_visualization)
