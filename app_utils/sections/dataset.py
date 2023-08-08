@@ -1138,12 +1138,14 @@ async def show_statistics_tab(dataset, cfg, q):
     df_train = read_dataframe(dataset["train_dataframe"])
 
     (
-        input_text_list,
+        input_text_lists,
         target_texts,
-    ) = cfg.logging.plots_class.get_chained_conversations(df=df_train, cfg=cfg, limit_chained_samples=True)
+    ) = cfg.logging.plots_class.get_chained_conversations(
+        df=df_train, cfg=cfg, limit_chained_samples=True
+    )
 
     df_stats = pd.DataFrame(
-        {"input_text_list": input_text_list, "target_text": target_texts}
+        {"input_text_list": input_text_lists, "target_text": target_texts}
     )
     df_stats["number_of_prompts"] = df_stats["input_text_list"].apply(len)
     df_stats["text_length_prompt"] = df_stats["input_text_list"].apply(

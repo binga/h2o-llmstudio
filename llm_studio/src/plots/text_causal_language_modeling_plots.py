@@ -92,15 +92,15 @@ class Plots:
     @classmethod
     def plot_data(cls, cfg) -> PlotData:
         df = read_dataframe_drop_missing_labels(cfg.dataset.train_dataframe, cfg)
-        input_text_list, target_texts = cls.get_chained_conversations(df, cfg, True)
+        input_text_lists, target_texts = cls.get_chained_conversations(df, cfg, True)
 
-        idxs = sample_indices(len(input_text_list), Plots.NUM_TEXTS)
-        input_text_list = [input_text_list[i] for i in idxs]
+        idxs = sample_indices(len(input_text_lists), Plots.NUM_TEXTS)
+        input_text_lists = [input_text_lists[i] for i in idxs]
         target_texts = [target_texts[i] for i in idxs]
 
         df = pd.DataFrame(
             {
-                "Input Text List": input_text_list,
+                "Input Text List": input_text_lists,
                 "Target Text": target_texts,
             }
         )
@@ -109,8 +109,8 @@ class Plots:
 
         i = 0
         for sample_number, row in df.iterrows():
-            input_text_list = row["Input Text List"]
-            for j, input_text in enumerate(input_text_list):
+            input_text_lists = row["Input Text List"]
+            for j, input_text in enumerate(input_text_lists):
                 suffix = "- Prompt" if j % 2 == 0 else "- Answer "
                 df_transposed.loc[i] = [
                     sample_number,
@@ -139,19 +139,19 @@ class Plots:
         if limit_chained_samples:
             cfg.dataset.limit_chained_samples = True
         dataset = CustomDataset(df, cfg, mode="validation")
-        input_text_list = [
+        input_text_lists = [
             dataset.get_chained_prompt_text_list(i) for i in dataset.indices
         ]
         target_texts = [dataset.answers[i] for i in dataset.indices]
         cfg.dataset.limit_chained_samples = limit_chained_samples_default
-        return input_text_list, target_texts
+        return input_text_lists, target_texts
 
     @classmethod
     def plot_validation_predictions(
         cls, val_outputs: Dict, cfg: Any, val_df: pd.DataFrame, mode: str
     ) -> PlotData:
         assert mode in ["validation"]
-        input_text_list, target_texts = cls.get_chained_conversations(
+        input_text_lists, target_texts = cls.get_chained_conversations(
             val_df, cfg, limit_chained_samples=False
         )
 
@@ -165,7 +165,7 @@ class Plots:
         df = pd.DataFrame(
             {
                 "Input Text": [
-                    "\n".join(input_text) for input_text in input_text_lists
+                    "\n".join(input_text_list) for input_text_list in input_text_lists
                 ],
                 "Target Text": target_texts,
                 "Predicted Text": predicted_texts,
