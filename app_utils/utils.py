@@ -13,6 +13,7 @@ import shutil
 import socket
 import subprocess
 import time
+import uuid
 import zipfile
 from collections import defaultdict
 from contextlib import closing
@@ -35,7 +36,6 @@ from app_utils.db import Experiment
 from llm_studio.src import possible_values
 from llm_studio.src.utils.config_utils import (
     _get_type_annotation_error,
-    copy_config,
     load_config_yaml,
     parse_cfg_dataclass,
     save_config_yaml,
@@ -1588,7 +1588,7 @@ def start_experiment(cfg: Any, q: Q, pre: str, gpu_list: Optional[List] = None) 
         env_vars.update(
             {"HUGGINGFACE_TOKEN": q.client["default_huggingface_api_token"]}
         )
-    cfg = copy_config(cfg, tmp_dir=get_output_dir(q))
+    cfg = copy_config(cfg, q)
     cfg.output_directory = f"{get_output_dir(q)}/{cfg.experiment_name}/"
     os.makedirs(cfg.output_directory)
     save_config_yaml(f"{cfg.output_directory}/cfg.yaml", cfg)
@@ -1864,6 +1864,23 @@ def get_single_gpu_usage(sig_figs=1, highlight=None):
             )
         )
     return items
+
+
+def copy_config(cfg: Any, q: Q) -> Any:
+    """Makes a copy of the config
+
+    Args:
+        cfg: config object
+    Returns:
+        copy of the config
+    """
+    # make unique yaml file using uuid
+    os.makedirs(get_output_dir(q), exist_ok=True)
+    tmp_file = os.path.join(f"{get_output_dir(q)}/", str(uuid.uuid4()) + ".yaml")
+    save_config_yaml(tmp_file, cfg)
+    cfg = load_config_yaml(tmp_file)
+    os.remove(tmp_file)
+    return cfg
 
 
 def make_label(title: str, appendix: str = "") -> str:
