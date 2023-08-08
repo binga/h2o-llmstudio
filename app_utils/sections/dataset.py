@@ -6,15 +6,15 @@ import time
 import traceback
 from typing import List, Optional
 
-import numpy as np
 import pandas as pd
 from h2o_wave import Q, ui
 from h2o_wave.types import FormCard, ImageCard, MarkupCard, StatListItem, Tab
-from sklearn.feature_extraction.text import CountVectorizer
 
 from app_utils.config import default_cfg
 from app_utils.db import Dataset
+from app_utils.sections.common import clean_dashboard
 from app_utils.sections.experiment import experiment_start
+from app_utils.sections.historgram_card import HistogramCard
 from app_utils.utils import (
     add_model_type,
     check_valid_upload_content,
@@ -24,6 +24,7 @@ from app_utils.utils import (
     get_dataset_elements,
     get_datasets,
     get_experiments_status,
+    get_frame_stats,
     get_model_types,
     get_problem_types,
     get_unique_dataset_name,
@@ -47,9 +48,6 @@ from llm_studio.src.utils.data_utils import (
     read_dataframe_drop_missing_labels,
     sanity_check,
 )
-
-from .common import clean_dashboard
-from .historgram_card import HistogramCard
 
 logger = logging.getLogger(__name__)
 
@@ -1182,6 +1180,34 @@ async def show_statistics_tab(dataset, cfg, q):
         q.page["dataset/display/statistics/parent_id"] = histogram_parent_id
         q.client.delete_cards.add("dataset/display/statistics/parent_id")
 
+    stats = get_frame_stats(read_dataframe(dataset["train_dataframe"]))
+    if stats is None:
+        component_items = [
+            ui.text(
+                "Dataset does not contain numerical or text features. "
+                "No statistics available."
+            )
+        ]
+    else:
+        if stats.shape[1] > 5:  # mixed text and numeric
+            widths = {col: "77" for col in stats}
+        else:  # only text features
+            widths = None
+        component_items = [
+            ui_table_from_df(
+                q=q,
+                df=stats,
+                name="dataset/display/statistics/table",
+                sortables=list(stats.columns),
+                min_widths=widths,
+                height="calc(100vh - 265px)",
+            )
+        ]
+    q.page["dataset/display/statistics"] = ui.form_card(
+        box="fourth" if cfg.dataset.parent_id_column != "None" else "third",
+        items=component_items,
+    )
+    q.client.delete_cards.add("dataset/display/statistics")
 
 
 async def dataset_import_uploaded_file(q: Q):
