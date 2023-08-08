@@ -6,9 +6,11 @@ import time
 import traceback
 from typing import List, Optional
 
+import numpy as np
 import pandas as pd
 from h2o_wave import Q, ui
 from h2o_wave.types import FormCard, ImageCard, MarkupCard, StatListItem, Tab
+from sklearn.feature_extraction.text import CountVectorizer
 
 from app_utils.config import default_cfg
 from app_utils.db import Dataset
@@ -1134,24 +1136,6 @@ async def show_summary_tab(dataset_id, q):
     q.client.delete_cards.add("dataset/display/summary")
 
 
-def get_children(array, id, parent_id_column="owner"):
-    def iter_(id):
-        result.append(id)
-        for i in children.get(id, []):
-            iter_(i)
-
-    children = {}
-    result = []
-
-    for row in array:
-        if parent_id_column in row:
-            children[row[parent_id_column]] = children.get(row[parent_id_column], [])
-            children[row[parent_id_column]].append(row["id"])
-    iter_(id)
-
-    return result
-
-
 async def show_statistics_tab(dataset, cfg, q):
     df_train = read_dataframe(dataset["train_dataframe"])
 
@@ -1165,9 +1149,11 @@ async def show_statistics_tab(dataset, cfg, q):
     )
     df_stats["number_of_prompts"] = df_stats["input_text_list"].apply(len)
     df_stats["text_length_prompt"] = df_stats["input_text_list"].apply(
-        lambda x: len("".join(x))
+        lambda x: len("".join(x).split(" "))
     )
-    df_stats["text_length_answer"] = df_stats["target_text"].str.len()
+    df_stats["text_length_answer"] = df_stats["target_text"].apply(
+        lambda x: len(x.split(" "))
+    )
 
     histogram_prompt = HistogramCard(
         column="text_length_prompt",
@@ -1176,6 +1162,7 @@ async def show_statistics_tab(dataset, cfg, q):
     )(q=q, df=df_stats)
 
     q.page["dataset/display/statistics/prompt"] = histogram_prompt
+    q.client.delete_cards.add("dataset/display/statistics/prompt")
 
     histogram_answer = HistogramCard(
         column="text_length_answer",
@@ -1183,6 +1170,7 @@ async def show_statistics_tab(dataset, cfg, q):
         histogram_box="second",
     )(q=q, df=df_stats)
     q.page["dataset/display/statistics/answer"] = histogram_answer
+    q.client.delete_cards.add("dataset/display/statistics/answer")
 
     if cfg.dataset.parent_id_column != "None":
         histogram_parent_id = HistogramCard(
@@ -1192,10 +1180,8 @@ async def show_statistics_tab(dataset, cfg, q):
             histogram_box="third",
         )(q=q, df=df_stats)
         q.page["dataset/display/statistics/parent_id"] = histogram_parent_id
+        q.client.delete_cards.add("dataset/display/statistics/parent_id")
 
-    q.client.delete_cards.add("dataset/display/statistics/prompt")
-    q.client.delete_cards.add("dataset/display/statistics/answer")
-    q.client.delete_cards.add("dataset/display/statistics/parent_id")
 
 
 async def dataset_import_uploaded_file(q: Q):
