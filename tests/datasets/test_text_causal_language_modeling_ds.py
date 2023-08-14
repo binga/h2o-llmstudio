@@ -124,7 +124,7 @@ def test_init(mock_auto_tokenizer):
     assert dataset.df.equals(df)
     assert dataset.mode == "train"
     assert all(dataset.indices == np.array([0, 1, 2]))
-    assert all(dataset.prompts == ["1", "2", "3"])
+    assert all(dataset.raw_prompts == ["1", "2", "3"])
     assert dataset.answers == ["4", "5", "6"]
 
 
