@@ -363,10 +363,6 @@ class CustomDataset(Dataset):
         if sample["prompt_input_ids"][0] != self.tokenizer.pad_token_id:
             sample["prompt_input_ids"][: len(system_encoding)] = system_encoding
 
-        if self.cfg.training.use_rlhf:
-            sample["reward_model_prompt_text"] = "<|endoftext|>".join(
-                self.get_chained_prompt_text_list(idx)
-            )
         return sample
 
     def get_labels(self, encodings):
