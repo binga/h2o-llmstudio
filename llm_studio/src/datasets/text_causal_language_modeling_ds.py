@@ -66,6 +66,63 @@ class CustomDataset(Dataset):
                 )
                 self.systems = [self.parse_system(cfg, system) for system in systems]
 
+    def __len__(self) -> int:
+        return len(self.indices)
+
+    def __getitem__(self, idx: int) -> Dict:
+        """Reads a single text observation."""
+        idx = self.indices[idx]
+
+        sample = dict()
+        encodings, system_encoding = self.get_encodings(idx)
+        input_ids = torch.cat([torch.cat(encoding) for encoding in encodings])
+        sample.update(self.get_labels(encodings))
+        sample.update(
+            self.pad_tokens(
+                input_ids,
+                attention_mask=torch.ones_like(input_ids),
+                max_length=self.cfg.tokenizer.max_length,
+                pad_token_id=self.tokenizer.pad_token_id,
+            )
+        )
+
+        # get answer encodings
+        answer_input_ids = encodings[-1][1]
+        answer_attention_mask = torch.ones_like(answer_input_ids)
+
+        sample.update(
+            self.pad_tokens(
+                answer_input_ids,
+                attention_mask=answer_attention_mask,
+                max_length=self.cfg.tokenizer.max_length_answer,
+                pad_token_id=self.tokenizer.pad_token_id,
+                direction="right",
+                prefix="answer_",
+            )
+        )
+
+        # Remove last answer from encoding to create the prompt for inference
+        encodings[-1][1] = torch.empty(0)
+        prompt_input_ids = torch.cat([torch.cat(encoding) for encoding in encodings])
+        prompt_attention_mask = torch.ones_like(prompt_input_ids)
+        sample.update(
+            self.pad_tokens(
+                prompt_input_ids,
+                attention_mask=prompt_attention_mask,
+                max_length=self.cfg.tokenizer.max_length,
+                pad_token_id=self.tokenizer.pad_token_id,
+                prefix="prompt_",
+            )
+        )
+        # make sure system encoding is always prepended if max_length exceeded
+        if sample["input_ids"][0] != self.tokenizer.pad_token_id:
+            sample["input_ids"][: len(system_encoding)] = system_encoding
+            if self.cfg.dataset.mask_prompt_labels:
+                sample["labels"][: len(system_encoding)] = -100
+        if sample["prompt_input_ids"][0] != self.tokenizer.pad_token_id:
+            sample["prompt_input_ids"][: len(system_encoding)] = system_encoding
+        return sample
+
     @staticmethod
     def parse_prompt(cfg: Any, prompt: str):
         prompt = (
@@ -90,9 +147,6 @@ class CustomDataset(Dataset):
         if cfg.dataset.add_eos_token_to_system:
             system += cfg._tokenizer_eos_token
         return system
-
-    def __len__(self) -> int:
-        return len(self.indices)
 
     @staticmethod
     def get_input_columns(cfg: Any) -> Tuple[str, ...]:
@@ -309,60 +363,6 @@ class CustomDataset(Dataset):
             assert (
                 "id" in df.columns
             ), "When using parent column, the dataframe requires an 'id' column. "
-
-    def __getitem__(self, idx: int) -> Dict:
-        """Reads a single text observation."""
-        idx = self.indices[idx]
-
-        sample = dict()
-        encodings, system_encoding = self.get_encodings(idx)
-        input_ids = torch.cat([torch.cat(encoding) for encoding in encodings])
-        sample.update(self.get_labels(encodings))
-        sample.update(
-            self.pad_tokens(
-                input_ids,
-                attention_mask=torch.ones_like(input_ids),
-                max_length=self.cfg.tokenizer.max_length,
-                pad_token_id=self.tokenizer.pad_token_id,
-            )
-        )
-
-        # get answer encodings
-        answer_input_ids = encodings[-1][1]
-        answer_attention_mask = torch.ones_like(answer_input_ids)
-
-        sample.update(
-            self.pad_tokens(
-                answer_input_ids,
-                attention_mask=answer_attention_mask,
-                max_length=self.cfg.tokenizer.max_length_answer,
-                pad_token_id=self.tokenizer.pad_token_id,
-                direction="right",
-                prefix="answer_",
-            )
-        )
-
-        # Remove last answer from encoding to create the prompt for inference
-        encodings[-1][1] = torch.empty(0)
-        prompt_input_ids = torch.cat([torch.cat(encoding) for encoding in encodings])
-        prompt_attention_mask = torch.ones_like(prompt_input_ids)
-        sample.update(
-            self.pad_tokens(
-                prompt_input_ids,
-                attention_mask=prompt_attention_mask,
-                max_length=self.cfg.tokenizer.max_length,
-                pad_token_id=self.tokenizer.pad_token_id,
-                prefix="prompt_",
-            )
-        )
-        # make sure system encoding is always prepended if max_length exceeded
-        if sample["input_ids"][0] != self.tokenizer.pad_token_id:
-            sample["input_ids"][: len(system_encoding)] = system_encoding
-            if self.cfg.dataset.mask_prompt_labels:
-                sample["labels"][: len(system_encoding)] = -100
-        if sample["prompt_input_ids"][0] != self.tokenizer.pad_token_id:
-            sample["prompt_input_ids"][: len(system_encoding)] = system_encoding
-        return sample
 
     def get_labels(self, encodings):
         labels = torch.cat([torch.cat(encoding) for encoding in encodings]).clone()
