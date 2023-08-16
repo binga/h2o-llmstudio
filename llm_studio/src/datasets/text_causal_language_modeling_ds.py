@@ -362,7 +362,6 @@ class CustomDataset(Dataset):
                 sample["labels"][: len(system_encoding)] = -100
         if sample["prompt_input_ids"][0] != self.tokenizer.pad_token_id:
             sample["prompt_input_ids"][: len(system_encoding)] = system_encoding
-
         return sample
 
     def get_labels(self, encodings):
